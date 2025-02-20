@@ -96,12 +96,9 @@ def home():
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8080))  # ✅ Railway에서 제공하는 포트 사용
+    print(f"🚀 Running on port {port}")  # ✅ 디버깅 로그 추가
     app.run(host="0.0.0.0", port=port)
-"""
-port = 5000
-public_url = ngrok.connect(port).public_url
-print(f"🚀 ngrok URL: {public_url}")
-app.run(port=port)"""
+
 
 def image_process(filename):
   from sklearn.cluster import KMeans
