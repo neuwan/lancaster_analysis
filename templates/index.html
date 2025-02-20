@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Lancaster_AutoAnalysis</title>
+    <script>
+        async function uploadFiles() {
+            const fileInput = document.getElementById("fileInput");
+            const statusText = document.getElementById("status");
+            const downloadLink = document.getElementById("downloadLink");
+
+            if (fileInput.files.length === 0) {
+                alert("파일을 선택해주세요!");
+                return;
+            }
+
+            let formData = new FormData();
+            for (let file of fileInput.files) {
+                formData.append("file", file);
+            }
+
+            statusText.innerText = "파일 업로드 중...";
+
+            const flaskServerUrl = window.location.origin;  // ✅ Railway에서 자동으로 현재 서버 주소 가져오기
+
+            try {
+                let response = await fetch(flaskServerUrl + "/upload", {
+                    method: "POST",
+                    body: formData
+                });
+
+                let result = await response.json();
+                if (response.ok) {
+                    statusText.innerText = "처리 완료! 압축 파일 다운로드 가능";
+
+                    // ZIP 다운로드 버튼 생성
+                    downloadLink.href = flaskServerUrl + "/download/" + result.zip_file;
+                    downloadLink.innerText = "결과 ZIP 다운로드";
+                    downloadLink.style.display = "block";
+                } else {
+                    statusText.innerText = "오류 발생: " + result.error;
+                }
+            } catch (error) {
+                statusText.innerText = "서버 연결 실패";
+            }
+        }
+    </script>
+</head>
+<body>
+    <h2>Lancaster image analysis program</h2>
+
+    <!-- YouTube 링크 추가 -->
+    <h2>For instructions, please refer to the following YouTube tutorial</h2>
+    <!-- YouTube 영상 직접 삽입 -->
+    <iframe width="560" height="315" 
+            src="https://www.youtube.com/embed/YOUR_VIDEO_ID" 
+            frameborder="0" 
+            allowfullscreen>
+    </iframe>
+
+    <br><br>
+
+    <!-- 파일 업로드 기능 -->
+    <input type="file" id="fileInput" multiple>
+    <button onclick="uploadFiles()">업로드</button>
+    <p id="status"></p>
+    <a id="downloadLink" style="display:none;"></a>
+
+    <h2>Developer : brainhwan, contact : brainhwan@gmail.com</h2>
+</body>
+</html>
