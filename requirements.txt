@@ -1,2 +1,10 @@
 flask
+flask-cors
 gunicorn
+werkzeug
+opencv-python-headless
+numpy
+scipy
+scikit-learn
+shapely
+matplotlib
