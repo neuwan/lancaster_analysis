@@ -7,16 +7,12 @@ Original file is located at
     https://colab.research.google.com/drive/1bNQzV7iW33-1I-ddSJeU_tkOMXM4Dqad
 """
 
-#!pip install flask flask-cors pyngrok
 import os
 import cv2
 import zipfile
 from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
 from werkzeug.utils import secure_filename
-#from pyngrok import ngrok
-
-!ngrok authtoken 2tFDD6wN06DVbBiAetp1GDIxSZE_9i5duKxheM2i3kusD94q
 
 app = Flask(__name__)
 CORS(app)  # CORS 활성화 (다른 도메인에서 접근 가능하도록)
