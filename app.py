@@ -10,35 +10,40 @@ Original file is located at
 import os
 import cv2
 import zipfile
-from flask import Flask, request, jsonify, send_file
+import matplotlib.pyplot as plt
+from flask import Flask, request, jsonify, send_file, render_template
 from flask_cors import CORS
 from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
 CORS(app)  # CORS 활성화 (다른 도메인에서 접근 가능하도록)
 
-UPLOAD_FOLDER = "uploads"
-RESULT_FOLDER = "results"
-ZIP_FOLDER = "zip_files"
+UPLOAD_FOLDER = "/tmp/uploads"
+RESULT_FOLDER = "/tmp/results"
+ZIP_FOLDER = "/tmp/zip_files"
 
+# ✅ Cloud Run에서는 /tmp 폴더만 사용 가능 (폴더 생성)
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 os.makedirs(RESULT_FOLDER, exist_ok=True)
 os.makedirs(ZIP_FOLDER, exist_ok=True)
 
+@app.route("/")
+def home():
+    return render_template("index.html")  # ✅ HTML 제공
+
 @app.route("/upload", methods=["POST"])
 def upload_multiple_files():
-
     if "file" not in request.files:
         return jsonify({"error": "파일이 없습니다."}), 400
 
-    files = request.files.getlist("file")  # ✅ 여러 개의 파일을 가져옴
+    files = request.files.getlist("file")
     if not files:
         return jsonify({"error": "업로드된 파일이 없습니다."}), 400
 
-    result_files = []  # 압축할 결과 파일 리스트
+    result_files = []  # ZIP으로 묶을 파일 리스트
     analysis_results = []
 
-    # ✅ CSV 헤더 추가 (한 번만 실행)
+    # ✅ CSV 헤더 추가
     analysis_results.append("파일명, 빨간면적, 파란면적, 교차면적, 빨강skew, 파랑skew, 빨강각도1, 빨강각도2, 빨강각도3, 빨강각도4, 빨강각도5, 빨강각도6, 빨강각도7, 빨강각도8, 빨강각도9, 파랑각도1, 파랑각도2, 파랑각도3, 파랑각도4, 파랑각도5, 파랑각도6, 파랑각도7, 파랑각도8, 파랑각도9")
 
     for file in files:
@@ -50,12 +55,18 @@ def upload_multiple_files():
             result_txt, result_img1, result_img2 = image_process(file_path)  # ✅ 파일 처리
             result_img1_path = os.path.join(RESULT_FOLDER, f"processed_1_{filename}")
             result_img2_path = os.path.join(RESULT_FOLDER, f"processed_2_{filename}")
-            print("")
 
-            cv2.imwrite(result_img1_path, result_img1)  # ✅ 결과 이미지 1 저장
-            result_img2.savefig(result_img2_path , dpi=300, bbox_inches='tight')
-            analysis_results.append(result_txt)  # ✅ 텍스트 데이터 저장 (파일이 아니라 문자열 추가)
+            # ✅ OpenCV 이미지 저장
+            cv2.imwrite(result_img1_path, result_img1)
 
+            # ✅ Matplotlib 이미지 저장 (Cloud Run에서는 DPI 설정 필수)
+            fig = plt.figure()
+            plt.imshow(result_img2)
+            plt.axis("off")
+            fig.savefig(result_img2_path, dpi=300, bbox_inches='tight')
+            plt.close(fig)
+
+            analysis_results.append(result_txt)  # ✅ 텍스트 데이터 추가
             result_files.extend([result_img1_path, result_img2_path])  # ✅ 결과 파일 리스트 추가
 
             # ✅ 원본 파일 삭제
@@ -63,25 +74,20 @@ def upload_multiple_files():
         except Exception as e:
             return jsonify({"error": str(e)}), 500
 
-    # ✅ 전체 분석 결과를 하나의 TXT 파일로 저장
+    # ✅ 분석 결과를 하나의 TXT 파일로 저장
     result_txt_path = os.path.join(RESULT_FOLDER, "final_analysis.txt")
     with open(result_txt_path, "w", encoding="utf-8") as f:
         f.write("\n".join(analysis_results))  # ✅ 분석 결과 저장
 
-    result_files.append(result_txt_path)  # ✅ 결과 파일 리스트에 추가 (이제 정상적으로 추가 가능)
+    result_files.append(result_txt_path)  # ✅ 결과 파일 리스트에 추가
 
-    # 🔹 ZIP 파일로 압축
-    zip_filename = "processed_results.zip"
-    zip_path = os.path.join(ZIP_FOLDER, zip_filename)
-
-    with zipfile.ZipFile(zip_path, "w") as zipf:
+    # ✅ ZIP 파일로 압축
+    zip_filename = os.path.join(ZIP_FOLDER, "processed_results.zip")
+    with zipfile.ZipFile(zip_filename, "w") as zipf:
         for file in result_files:
             zipf.write(file, os.path.basename(file))  # ✅ 결과 파일을 ZIP에 추가
 
-    return jsonify({
-        "message": f"{len(files)}개의 파일이 처리되었습니다!",
-        "zip_file": zip_filename
-    })
+    return send_file(zip_filename, as_attachment=True, download_name="processed_results.zip")
 
 @app.route("/download/<filename>", methods=["GET"])
 def download_file(filename):
@@ -90,14 +96,11 @@ def download_file(filename):
         return send_file(zip_path, as_attachment=True)
     return jsonify({"error": "파일을 찾을 수 없습니다."}), 404
 
-
-def home():
-    return render_template("index.html")  
-
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 8080))  # ✅ Railway에서 제공하는 포트 사용
+    port = int(os.environ.get("PORT", 8080))  # ✅ Cloud Run에서 제공하는 포트 사용
     print(f"🚀 Running on port {port}")  # ✅ 디버깅 로그 추가
     app.run(host="0.0.0.0", port=port)
+
 
 
 def image_process(filename):
